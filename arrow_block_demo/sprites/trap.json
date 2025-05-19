@@ -1,0 +1,17 @@
+{
+  "trap": [
+    "X   X",
+    " X X ",
+    "  X  ",
+    " X X ",
+    "X   X"
+  ],
+  "inactive_trap": [
+    "x   x",
+    " x x ",
+    "  x  ",
+    " x x ",
+    "x   x"
+  ],
+  "description": "Trap that damages the player"
+} 

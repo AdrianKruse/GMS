@@ -1,0 +1,10 @@
+{
+  "sprite": [
+    "#####",
+    "#####",
+    "#####",
+    "#####",
+    "#####"
+  ],
+  "description": "Blocked area where the block cannot move"
+} 
