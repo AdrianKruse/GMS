@@ -8,7 +8,7 @@ import logging
 import time
 
 
-logger = logging.getLogger('game')
+logger = logging.getLogger('graphics')
 # Sprite loader
 sprite_loader = get_loader()
 
