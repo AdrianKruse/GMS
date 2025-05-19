@@ -101,21 +101,31 @@ def render(win, game_state: GameState, round_state: Optional[RoundState], dirty_
         tower_x, tower_y = tower.position
         tower_positions.add((tower_x, tower_y))
         if 0 <= tower_x < visible_cols and 0 <= tower_y < visible_rows:
-            # Determine tower sprite based on direction
-            direction = tower.direction
-            if direction[0] > 0:  # Right
-                sprite_name = "tower_right"
-            elif direction[0] < 0:  # Left
-                sprite_name = "tower_left"
-            elif direction[1] > 0:  # Down
-                sprite_name = "tower_down"
-            elif direction[1] < 0:  # Up
-                sprite_name = "tower_up"
-            else:
-                sprite_name = "tower"  # Default
+            sprite_name_to_draw = ""
+            if tower.is_destroyed and tower.sprite_name_override:
+                sprite_name_to_draw = tower.sprite_name_override
+            elif tower.is_destroyed:
+                # Fallback if override not set but is destroyed (e.g. "tower_rubble")
+                # For now, we expect sprite_name_override to be set for destroyed towers.
+                # If not, it might not draw or draw default. Let's draw nothing if no specific destroyed sprite.
+                # To ensure it draws something, one could assign a default destroyed sprite name here.
+                # For now, let's assume if it's destroyed, override is set.
+                # If sprite_name_override is not set for a destroyed tower, it might not be drawn
+                # or fall through to directional logic if not tower.is_destroyed check is removed.
+                # To be safe, if destroyed and no override, let's explicitly handle or skip.
+                if not tower.sprite_name_override:
+                    continue # Don't draw if destroyed and no specific destroyed sprite
+            else: # Not destroyed, determine sprite by direction
+                direction = tower.direction
+                if direction[0] > 0: sprite_name_to_draw = "tower_right"
+                elif direction[0] < 0: sprite_name_to_draw = "tower_left"
+                elif direction[1] > 0: sprite_name_to_draw = "tower_down"
+                elif direction[1] < 0: sprite_name_to_draw = "tower_up"
+                else: sprite_name_to_draw = "tower" # Default for active tower if no direction
             
-            draw_sprite(win, tower_x, tower_y, sprite_name)
-            drawn_cells.add((tower_x, tower_y))
+            if sprite_name_to_draw:
+                 draw_sprite(win, tower_x, tower_y, sprite_name_to_draw)
+                 drawn_cells.add((tower_x, tower_y))
 
     # Remember old projectile positions to clear them
     old_projectile_positions = set()

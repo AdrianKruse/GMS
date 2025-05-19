@@ -3,13 +3,12 @@ import curses
 import sys
 import traceback
 import locale
-import logging
-import logging_setup
 from typing import Optional
 
 from cli.args import parse_args
 from controller.mainloop import run_game
 from persistence.serializer import load_game_state
+from logging_setup import setup_logging
 
 
 def check_terminal_size() -> Optional[str]:
@@ -31,9 +30,9 @@ def check_terminal_size() -> Optional[str]:
 
 def main():
     """Main entry point for the Arrow Block Demo game."""
-    logging_setup.setup_logs()
-    logger = logging.getLogger('game')
-    logger.debug("game started")
+    # Set up logging first
+    setup_logging()
+    
     # Set up locale for proper character display
     locale.setlocale(locale.LC_ALL, '')
     
@@ -50,7 +49,6 @@ def main():
     # Run the game with curses
     try:
         curses.wrapper(run_game, tick_rate, grid_width, grid_height)
-        logger.debug("game ended")
         return 0
     except KeyboardInterrupt:
         print("Game terminated by user.")
@@ -63,8 +61,6 @@ def main():
         print(f"An error occurred: {e}")
         traceback.print_exc()
         return 1
-
-
 
 
 if __name__ == "__main__":

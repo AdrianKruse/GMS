@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List, Dict, Optional, TYPE_CHECKING
+import uuid
 
 # Use TYPE_CHECKING to avoid circular imports
 if TYPE_CHECKING:
@@ -16,6 +17,21 @@ class Tower:
     health: int = 100
     rate: int = 8
     tick: int = 0
+    tower_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    is_destroyed: bool = False
+    sprite_name_override: Optional[str] = None
+
+    def take_damage(self, damage: int) -> bool:
+        """
+        Apply damage to the tower and return whether it was destroyed.
+        """
+        self.health -= damage
+        if self.health <= 0 and not self.is_destroyed:
+            self.health = 0
+            self.is_destroyed = True
+            self.sprite_name_override = "tower_rubble"
+            return True
+        return False
 
 
 @dataclass
@@ -62,6 +78,11 @@ class GameState:
         if x < 0 or x >= grid_w or y < 0 or y >= grid_h:
             return False
             
+        # Check if there's a tower at this position
+        for tower in self.towers:
+            if tower.position == (x, y):
+                return False  # Can't move through towers
+                
         # If we have a map, check if the position is passable
         if self.current_map:
             return self.current_map.is_position_valid(x, y)

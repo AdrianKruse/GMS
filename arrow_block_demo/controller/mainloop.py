@@ -1,5 +1,6 @@
 import curses
 import time
+import uuid
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from core.state.game_state import GameState, Tower
@@ -11,7 +12,7 @@ from core.actions import (
 from core.events import Event, RoundEnded
 from core.systems.init_round import init_round
 from core.systems.step_round import step_round
-from core.agent_actions import AgentAction, MoveTo, Stand
+from core.agent_actions import AgentAction, MoveTo, Stand, Resume, Attack
 from core.entities import Agent, AgentState
 from controller.phases import Phase
 from cli.commands import parse_command
@@ -21,13 +22,20 @@ from persistence.serializer import save_game_state
 from maps.loader import get_map_loader
 import logging
 
+# Get the appropriate loggers
+system_logger = logging.getLogger('system')
+graphics_logger = logging.getLogger('graphics')
+cli_logger = logging.getLogger('cli')
 
 class GameController:
     def __init__(self, logger, stdscr, tick_rate: float = 0.03, grid_width: int = 16, grid_height: int = 16):
         self.stdscr = stdscr
         self.tick_rate = tick_rate
         self.windows = windows.make_windows(stdscr)
-        self.logger = logger
+        # Initialize loggers
+        self.system_logger = system_logger
+        self.graphics_logger = graphics_logger
+        self.cli_logger = cli_logger
         
         # Initialize states
         self.game_state = GameState(grid_width=grid_width, grid_height=grid_height)
@@ -41,7 +49,7 @@ class GameController:
             self.game_state.grid_width = default_map.width
             self.game_state.grid_height = default_map.height
 
-        logger.debug("loaded map: ")
+        self.system_logger.debug("Map loaded successfully")
 
         self.round_state: Optional[RoundState] = None
         
@@ -69,14 +77,15 @@ class GameController:
     def log_game_state(self, event_name: str = "GameState Update") -> None:
         """Logs the current game state in a structured way."""
         if not self.game_state:
-            self.logger.debug(f"{event_name}: GameState is None")
+            self.system_logger.debug(f"{event_name}: GameState is None")
             return
         
         towers_info = []
         if self.game_state.towers:
             for i, tower in enumerate(self.game_state.towers):
                 towers_info.append(
-                    f"  Tower {i+1}: Pos=({tower.position[0]},{tower.position[1]}), Dir={tower.direction}, Tick={tower.tick}, Rate={tower.rate}"
+                    f"  Tower {i+1}: Pos=({tower.position[0]},{tower.position[1]}), Dir={tower.direction}, "
+                    f"Health={tower.health}, Destroyed={tower.is_destroyed}, Tick={tower.tick}, Rate={tower.rate}"
                 )
         else:
             towers_info.append("  No towers present.")
@@ -95,12 +104,12 @@ class GameController:
             f"  Current Map: {map_info}\\n"
             f"  Towers:\\n" + "\\n".join(towers_info)
         )
-        self.logger.info(state_details)
+        self.system_logger.info(state_details)
 
     def log_round_state(self, event_name: str = "RoundState Update") -> None:
         """Logs the current round state in a structured way."""
         if not self.round_state:
-            self.logger.debug(f"{event_name}: RoundState is None")
+            self.system_logger.debug(f"{event_name}: RoundState is None")
             return
 
         projectiles_info = []
@@ -120,7 +129,7 @@ class GameController:
             f"  Tick Index: {self.round_state.tick_index}\\n"
             f"  Projectiles:\\n" + "\\n".join(projectiles_info)
         )
-        self.logger.info(state_details)
+        self.system_logger.info(state_details)
 
     def process_action(self, action: Action) -> List[Event]:
         """Process a player action and return events."""
@@ -131,33 +140,33 @@ class GameController:
                 self.round_state.is_moving = True
                 self.phase = Phase.ROUND
                 self.needs_full_redraw = True
-                self.logger.debug("Starting new round")
+                self.system_logger.debug("Starting new round")
             else:
                 self.error_message = "Cannot start movement during active round"
-                self.logger.warning("Attempted to start round during active round")
+                self.cli_logger.warning("Attempted to start round during active round")
         
         elif isinstance(action, Quit):
             self.running = False
             save_game_state(self.game_state, "latest_game.json")
-            self.logger.info("Game quit, state saved")
+            self.system_logger.info("Game quit, state saved")
             
         elif isinstance(action, PlaceTower):
             if self.phase != Phase.BUILD:
                 self.error_message = "Can only place towers during build phase"
-                self.logger.warning(f"Attempted to place tower during {self.phase} phase")
+                self.cli_logger.warning(f"Attempted to place tower during {self.phase} phase")
                 return events
                 
             # Check if coordinates are within the grid
             if not self.game_state.is_position_valid(action.x, action.y):
                 self.error_message = "Cannot place tower at that position"
-                self.logger.warning(f"Invalid tower position attempted: ({action.x}, {action.y})")
+                self.cli_logger.warning(f"Invalid tower position attempted: ({action.x}, {action.y})")
                 return events
                 
             # Check if there's already a tower at this position
             for tower in self.game_state.towers:
                 if tower.position == (action.x, action.y):
                     self.error_message = "There's already a tower at this position"
-                    self.logger.warning(f"Tower already exists at ({action.x}, {action.y})")
+                    self.cli_logger.warning(f"Tower already exists at ({action.x}, {action.y})")
                     return events
             
             # Create direction vector based on direction parameter
@@ -171,12 +180,15 @@ class GameController:
             elif action.direction == 3:  # Left
                 direction_vector = (-1.0, 0.0)
             
-            # Place the tower
+            # Place the tower with proper initialization of all fields
+            tower_id = str(uuid.uuid4())
             self.game_state.towers.append(Tower(
                 position=(action.x, action.y),
-                direction=direction_vector
+                direction=direction_vector,
+                tower_id=tower_id,
+                is_destroyed=False
             ))
-            self.logger.info(f"Tower placed at ({action.x}, {action.y}) with direction {direction_vector}")
+            self.system_logger.info(f"Tower placed at ({action.x}, {action.y}) with direction {direction_vector}, id={tower_id}")
             self.needs_full_redraw = True
             
             # If the info display is showing towers, update it
@@ -247,36 +259,29 @@ class GameController:
                 
         except Exception as e:
             self.error_message = f"Error: {str(e)}"
+            self.cli_logger.error(f"Input error: {str(e)}")
     
     def update(self) -> None:
         """Update game state based on current phase."""
         if self.phase == Phase.ROUND and self.round_state.is_moving:
             # Create an AgentState (placeholder for now)
-            agent_state = AgentState()
-            # Update agent's position to match round_state
-            self.agent.pos = self.round_state.agent_pos
-            # Get agent action using the agent's action method
-            agent_action = self.agent.action(agent_state)
+            agent_state = AgentState() # This is currently unused by Agent.action but kept for structure
             
-            # Store old state for comparison
-            old_pos = self.round_state.agent_pos
+            # Get agent action using the agent's action method. 
+            # Agent.action now requires game_state and round_state.
+            agent_action = self.agent.action(self.game_state, self.round_state)
             
-            # Update state
-            new_round_state, events = step_round(self.game_state, self.round_state, agent_action)
+            # Store old state for comparison (e.g. for needs_full_redraw)
+            old_agent_pos_for_redraw_check = self.round_state.agent_pos
+            
+            # Update state. Pass the agent instance (self.agent) to step_round.
+            new_round_state, events = step_round(self.game_state, self.round_state, agent_action, self.agent)
             self.round_state = new_round_state
             self.log_round_state("After step_round") # Log round state after update
             
-            # If position changed, we need to redraw
-            if old_pos != self.round_state.agent_pos:
+            # If position changed, we need to redraw (or if other significant changes)
+            if old_agent_pos_for_redraw_check != self.round_state.agent_pos or any(isinstance(e, RoundEnded) for e in events):
                 self.needs_full_redraw = True
-            
-            # Process events
-            for event in events:
-                if isinstance(event, RoundEnded):
-                    self.phase = Phase.SUMMARY
-                    self.round_state.is_moving = False
-                    self.game_state.wave_counter += 1
-                    self.needs_full_redraw = True
             
             self.log_game_state("After processing events in update") # Log game state
             self.log_round_state("After processing events in update") # Log round state
@@ -356,11 +361,8 @@ def run_game(stdscr, tick_rate: float = 0.03, grid_width: int = 16, grid_height:
     stdscr.clear()
     stdscr.refresh()
     
-    # Set up logging
-    logger = logging.getLogger('game')
-    
     # Create and run game controller
-    controller = GameController(logger, stdscr, tick_rate, grid_width, grid_height)
+    controller = GameController(None, stdscr, tick_rate, grid_width, grid_height)
     
     # Frame rate control
     RENDERING_FPS = 30  # Target 30 FPS for smooth rendering but less CPU usage
@@ -396,7 +398,7 @@ def run_game(stdscr, tick_rate: float = 0.03, grid_width: int = 16, grid_height:
         # Calculate and log FPS every second
         if current_time - fps_timer >= 1.0:
             fps = frame_count / (current_time - fps_timer)
-            logger.debug(f"FPS: {fps:.1f}")
+            graphics_logger.debug(f"FPS: {fps:.1f}")
             frame_count = 0
             fps_timer = current_time
         
