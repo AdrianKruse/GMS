@@ -1,0 +1,27 @@
+{
+  "name": "cross",
+  "layout": [
+    "BBBBBBBBBBBBBBBB",
+    "B..............B",
+    "B..............B",
+    "B..++......++..B",
+    "B..++..BB..++..B",
+    "B......BB......B",
+    "B......BB......B",
+    "B...BBBBBBBB...B",
+    "B...BBBBBBBB...B",
+    "B......BB......B",
+    "B......BB......B",
+    "B..++..BB..++..B",
+    "B..++......++..B",
+    "B..............B",
+    "B..............B",
+    "BBBBBBBBBBBBBBBB"
+  ],
+  "entity_mappings": {
+    "B": "blocked",
+    ".": "free",
+    "+": "start"
+  },
+  "description": "Cross map"
+} 

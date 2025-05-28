@@ -1,0 +1,178 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+conda-meta/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ML/AI Specific
+# Model weights and checkpoints
+models/
+*.pt
+*.pth
+*.ckpt
+*.zip
+*.h5
+*.pkl
+*.pickle
+*.joblib
+*.model
+
+# Datasets (usually large)
+data/
+datasets/
+*.csv
+*.parquet
+*.npy
+*.npz
+
+# Wandb logs and runs
+wandb/
+Training/wandb/
+runs/
+tensorboard_logs/
+mlruns/
+
+# General logs
+logs/
+*.log
+*.out
+*.err
+
+# Temporary training files
+checkpoints/
+saved_models/
+experiments/
+results/
+
+# Large media files (except sprites which you want to track)
+# Uncomment these if you have other large media files you don't want to track
+# *.mp4
+# *.avi
+# *.mov
+# *.wav
+# *.mp3
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+*.exe
+*.msi
+*.msm
+*.msp
+
+# Linux
+*~
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Game specific (keeping sprites tracked)
+# sprites/ - KEEP THIS COMMENTED to track sprites
+# assets/ - KEEP THIS COMMENTED to track game assets
+
+# Config files that might contain secrets
+config.yaml
+config.json
+secrets.yaml
+secrets.json
+credentials.json
+
+# Large binary files
+*.bin
+*.dat
+*.db
+*.sqlite
+*.sqlite3

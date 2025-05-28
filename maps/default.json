@@ -1,0 +1,27 @@
+{
+  "name": "default",
+  "layout": [
+    "BBBBBBBBBBBBBBBB",
+    "B++++++++++++++B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B..............B",
+    "B++++++++++++++B",
+    "BBBBBBBBBBBBBBBB"
+  ],
+  "entity_mappings": {
+    "B": "blocked",
+    "+": "start",
+    ".": "free"
+  },
+  "description": "Default map with a mix of free spaces, blocked areas, and traps"
+} 

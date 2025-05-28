@@ -1,0 +1,27 @@
+{
+  "name": "garden",
+  "layout": [
+    "BBBBBBBBBBBBBBBB",
+    "B++++++++++++++B",
+    "B++++++++++++++B",
+    "B++BBB....BBB++B",
+    "B++BBB....BBB++B",
+    "B++BBB....BBB++B",
+    "B++..........++B",
+    "B++..........++B",
+    "B++..........++B",
+    "B++..........++B",
+    "B++BBB....BBB++B",
+    "B++BBB....BBB++B",
+    "B++BBB....BBB++B",
+    "B++++++++++++++B",
+    "B++++++++++++++B",
+    "BBBBBBBBBBBBBBBB"
+  ],
+  "entity_mappings": {
+    "B": "blocked",
+    "+": "start",
+    ".": "free"
+  },
+  "description": "Garden Map"
+} 
