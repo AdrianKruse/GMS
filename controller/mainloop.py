@@ -53,10 +53,14 @@ class GameController:
         self.cli_logger = cli_logger
         
         # Initialize states
-        self.round_state, self.game_state = generate_round_state("cross")
+        self.map_name = "cross"
+        self.round_state, self.game_state = generate_round_state(self.map_name)
         self.last_observation = get_observation_from_round_state(self.round_state)
+        round_states = {
+            self.map_name: self.round_state
+        }
         env_config = {
-            'round_state': self.round_state,
+            'round_states': round_states,
             'max_episode_steps': 1000
         }
         self.env = ActionWrapper(GMSEnv(env_config))
@@ -83,8 +87,11 @@ class GameController:
         """Initialize the round state and agent."""
         # Create a new controller round state using the adapter
         self.round_state = ControllerAdapter.initialize_round_state(self.game_state)
+        round_states = {
+            self.map_name: self.round_state
+        }
         env_config = {
-            'round_state': self.round_state,
+            'round_states': round_states,
             'max_episode_steps': 1000
         }
         self.env = ActionWrapper(GMSEnv(env_config))

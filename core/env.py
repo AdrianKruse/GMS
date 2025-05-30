@@ -16,7 +16,7 @@ class GMSEnv(gym.Env):
     """
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
-        
+        self.seed = 0
         # Initialize configuration
         self.config = config
         self.max_episode_steps = config.get('max_episode_steps', 1000)
@@ -36,8 +36,6 @@ class GMSEnv(gym.Env):
         # Create a deep copy of the state for reset
         import copy
         self.start_states = copy.deepcopy(round_states)
-        print("starting states: ", self.start_states)
-        print("starting state: ",self.round_state)
 
         self.observation_space = get_observation_space(self.round_state)
         self.action_space = get_action_space(self.round_state)
@@ -49,20 +47,23 @@ class GMSEnv(gym.Env):
         super().reset(seed=seed)
         import copy
 
+        if seed is None:
+            seed = random.randint(0, 1000000)
+        self.seed = seed
 
+        random.seed(self.seed)
         round_states = copy.deepcopy(self.start_states)
         map_key = random.choice(list(round_states.keys()))
         self.map_name = map_key
         self.round_state = round_states[map_key]
 
-        self.round_state = self.round_state.random_transform()
+        self.round_state = self.round_state.random_transform(self.seed)
         starting_positions = [self.round_state.position]
         for row in self.round_state.grid_layout:
             for field in row:
                 if field == BlockType.START:
                     starting_positions.append((row.index(field), row.index(field)))
         self.round_state.position = random.choice(starting_positions)
-        print("starting state: ",self.round_state)
         self.tick_count = 0
 
         self.observation_space = get_observation_space(self.round_state)
@@ -83,7 +84,7 @@ class GMSEnv(gym.Env):
         if self.tick_count >= self.max_episode_steps:
             truncated = True
         obs = get_observation_from_round_state(self.round_state)
-        return obs, reward, terminated, truncated, {'events': events}
+        return obs, reward, terminated, truncated, {'events': events, 'seed': self.seed}
     
     def render(self, mode: str = 'human') -> None:
         """

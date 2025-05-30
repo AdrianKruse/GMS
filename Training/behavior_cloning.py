@@ -8,6 +8,9 @@ Behaviour-Cloning trainer for SimpleAgent → DictPolicy
 """
 
 from __future__ import annotations
+import sys
+print(sys.path)
+
 
 import os, time, random, json
 from typing import Callable, List, Dict, Any, Tuple
@@ -74,7 +77,7 @@ class BCExperiment:
     def __init__(
         self,
         env_fn: Callable[[], gym.Env] = make_env,
-        total_expert_steps: int = 1000_000,
+        total_expert_steps: int = 1_400_000,
         bc_epochs: int = 8,
         batch_size: int = 512,
         lr: float = 3e-4,
@@ -151,7 +154,7 @@ class BCExperiment:
                 obs, _ = self.env.reset()
 
             collected += 1
-            if collected % 10_000 == 0:
+            if collected % 100_000 == 0:
                 wandb.log(
                     {
                         "data/collected": collected,
@@ -177,14 +180,26 @@ class BCExperiment:
                     print("dist: ", dist.distribution.mean)
                     print("act_tensor: ", act_tensor)
 
+                log_std = dist.distribution.scale
+
+                min_log_std = -5.0
+                max_log_std = 2.0
+
+                low_pen = torch.relu(min_log_std - log_std)
+                high_pen = torch.relu(log_std - max_log_std)
+                log_std_pen = (low_pen + high_pen).mean()
+
                 logp = dist.log_prob(act_tensor)
-                loss = -(logp.mean())
+
+                beta = 0.01
+
+                loss = -(logp.mean()) + beta * log_std_pen
 
                 self.opt.zero_grad(set_to_none=True)
                 loss.backward()
                 self.opt.step()
 
-                if i % 50 == 0:
+                if i % 200 == 0:
                     wandb.log({
                         "bc/loss": loss.item(),
                         "bc/epoch": epoch,

@@ -6,6 +6,7 @@ import os
 import torch
 import wandb
 import random
+import uuid
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_checker import check_env
@@ -15,6 +16,8 @@ from Training.ActionWrapper import ActionWrapper
 from stable_baselines3.common.torch_layers import FlattenExtractor
 from Training.FeatureExtractor import DictPolicy
 from Training.timing_callback import TimingCallback
+from stable_baselines3.common.callbacks import BaseCallback
+from Training.action_replay_callback import ActionReplayCallback
 
 from core.round_state_generator import generate_round_state
 
@@ -32,8 +35,8 @@ GRID_HEIGHT = 16
 from core.env import GMSEnv
 
 # --- Training Configuration ---
-TOTAL_TIMESTEPS = 100_000
-N_ENVS = 16
+TOTAL_TIMESTEPS = 10000
+N_ENVS = 1
 # You won't use tensorboard_log for the model directly if using W&B sync_tensorboard=True
 # But W&B can still sync if SB3 is set to log to TB first, or use the callback directly.
 
@@ -56,6 +59,40 @@ wandb_config = {
     "net_arch": dict(pi=[64, 64], vf=[64, 64]),
     "activation_fn": "ReLU" # Store as string if not using direct torch.nn.ReLU object
 }
+
+
+class FreezeActorCallback(BaseCallback):
+    """Callback to freeze actor network for the first few gradient steps."""
+    
+    def __init__(self, freeze_steps: int, verbose: int = 1):
+        super().__init__(verbose)
+        self.freeze_steps = freeze_steps
+        self.actor_frozen = False
+        self.actor_unfrozen = False
+    
+    def _on_training_start(self) -> None:
+        """Called at the beginning of training."""
+        if self.verbose >= 1:
+            print(f"Freezing actor network for first {self.freeze_steps} steps...")
+        
+        # Freeze policy network parameters
+        for name, param in self.model.policy.named_parameters():
+            param.requires_grad = False
+
+        self.actor_frozen = True
+    
+    def _on_step(self) -> bool:
+        """Called after each training step."""
+        if self.num_timesteps >= self.freeze_steps and not self.actor_unfrozen:
+            if self.verbose >= 1:
+                print(f"Unfreezing actor network at step {self.num_timesteps}...")
+            
+            # Unfreeze policy network parameters
+            for name, param in self.model.policy.named_parameters():
+                param.requires_grad = True
+            self.actor_unfrozen = True
+        
+        return True
 
 
 # --- Environment Setup ---
@@ -106,8 +143,10 @@ if __name__ == '__main__':
             save_code=True
         )
     else:
+        run_id = str(uuid.uuid4())
         run = wandb.init(
             project="my-game-rl-training",
+            id=run_id,
             config=wandb_config,
             sync_tensorboard=True,
             save_code=True
@@ -115,9 +154,8 @@ if __name__ == '__main__':
 
     env = SubprocVecEnv([make_env for _ in range(N_ENVS)])
 
-    ckpt = torch.load("models/bc_policy.pt", map_location="cpu")  # Not .zip!
-
-# --- PPO Agent Instantiation ---
+    ckpt = torch.load("models/bc_policy.pt", map_location="cpu")  # Not .zip! 
+    # --- PPO Agent Instantiation ---
     if CONTINUE_TRAINING and os.path.exists(MODEL_PATH):
         print(f"Loaded model from {MODEL_PATH} to continue training.")
         time.sleep(3)
@@ -125,7 +163,7 @@ if __name__ == '__main__':
             MODEL_PATH,
             env=env,
             custom_objects={"policy_class": DictPolicy},
-            device="mps"
+            device="cpu"
         )
     else:
         print("Started training from scratch.")
@@ -143,13 +181,14 @@ if __name__ == '__main__':
             ent_coef=wandb_config["ent_coef"],
             verbose=1,
             tensorboard_log=f"runs/{run.id}",
-            device="mps"
+            device="cpu"
         )
         model.policy.load_state_dict(ckpt["policy"])
-    
+
     policy2 = DictPolicy(env.observation_space, env.action_space, lr_schedule=lambda x: 0.0003)
     policy_only = torch.load("models/bc_policy.pt", map_location="cpu")
     policy2.load_state_dict(policy_only["policy"])
+
 
     SAVE_FREQ = 4000
 
@@ -157,30 +196,31 @@ if __name__ == '__main__':
 # This callback explicitly manages saving models and logging gradients.
     wandb_callback = WandbCallback(
         model_save_path=f"models/{run.id}", # Path to save models within the W&B run directory
-        model_save_freq=SAVE_FREQ // N_ENVS, # Convert to steps per environment if n_steps is per env
+        model_save_freq=32 // N_ENVS, # Convert to steps per environment if n_steps is per env
                                              # The callback expects total timesteps after an update (n_steps * N_ENVS)
                                              # but if you want it every 100k total steps, it's simpler to set based on total.
                                              # (Or just use SAVE_FREQ as 100_000 if that's your total step interval)
         gradient_save_freq=1000, # Log gradient histograms every 1000 steps
         verbose=2,
     )
+    
+    # Freeze actor for first 5000 steps
+    freeze_callback = FreezeActorCallback(freeze_steps=5000)
+
+    replay_dir = f"replays/{run.id}"
+    action_replay_callback = ActionReplayCallback(save_every=1000, out_dir=replay_dir)
+    
     model.policy.eval()
     test_env = make_env()
     obs, _ = test_env.reset()
     action = model.predict(obs, deterministic=True)
-    print("action: ", action)
     action2 = policy2.predict(obs, deterministic=True)
-    print("action2: ", action2)
-    print(policy2.state_dict().keys())
-    print(policy2.state_dict()["policy.fc1.weight"])
-    print(policy2.state_dict()["policy.fc1.bias"])
-    time.sleep(1000000)
 
 # --- Train the Agent ---
     print("Starting training with W&B logging...")
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
-        callback=[wandb_callback, TimingCallback()],
+        callback=[wandb_callback, TimingCallback(), freeze_callback, action_replay_callback],
     )
     print("Training finished.")
 

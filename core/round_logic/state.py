@@ -175,8 +175,9 @@ class RoundState:
         return new
 
 
-    def random_transform(self) -> "RoundState":
+    def random_transform(self, seed: int) -> "RoundState":
         """Random 0/90/180/270 rotation plus random H/V flips."""
+        random.seed(seed)
         return self.transform(
             rotate_quarters=random.randint(0, 3),
             flip_h=random.choice([False, True]),
